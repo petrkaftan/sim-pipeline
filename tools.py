@@ -154,6 +154,7 @@ def create_simulation_order(args, simulations_directory: Path):
         "rpms": args.rpms,
         "cores": args.cores,
         "field_init": args.field_init,
+        "mesh_only" : args.mesh_only,
         "study": args.study,
         "study_file": getattr(args, "study_file", None),
         "study_parameter": getattr(args, "study_parameter", None),
@@ -162,7 +163,7 @@ def create_simulation_order(args, simulations_directory: Path):
     }
 
     # -------- STUDY ON --------
-    if args.study == "on":
+    if args.study:
         geometry = args.geometries[0]
         rpm = args.rpms[0]
 
@@ -183,6 +184,7 @@ def create_simulation_order(args, simulations_directory: Path):
                 "rpm": rpm,
                 "mode": args.mode,
                 "cores": args.cores,
+                "mesh_only" : args.mesh_only,
                 "field_init": args.field_init,
                 "study": args.study,
                 "study_file": args.study_file,
@@ -203,6 +205,7 @@ def create_simulation_order(args, simulations_directory: Path):
                     "rpm": rpm,
                     "mode": args.mode,
                     "cores": args.cores,
+                    "mesh_only" : args.mesh_only,
                     "field_init": args.field_init,
                     "study": args.study,
                     "study_file": None,

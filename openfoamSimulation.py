@@ -9,7 +9,7 @@ from tools import get_safe_timestep
 
 convergence_check_interval = 1
 
-def openfoamSimulation(simulation_name, simulation_working_directory, convergence_tolerance, rpm_count, convergence_window_revolutions, MODE, NUMBER_OF_CORES, resume, initialize_from_previous=False, previous_simulation_path=None):
+def openfoamSimulation(simulation_name, simulation_working_directory, convergence_tolerance, rpm_count, convergence_window_revolutions, MODE, NUMBER_OF_CORES, resume, MESH_ONLY, initialize_from_previous=False, previous_simulation_path=None):
 
     # Docker client is setup here, interface volume mapping is defined, container is created:
 
@@ -134,20 +134,21 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
                 print("mapFields finished...")
 
 
+            if not MESH_ONLY:
 
-            decomposePar_cmd = "bash -c 'source /opt/openfoam13/etc/bashrc && decomposePar > log.decomposePar'"
+                decomposePar_cmd = "bash -c 'source /opt/openfoam13/etc/bashrc && decomposePar > log.decomposePar'"
 
-            print("decomposePar started...")
+                print("decomposePar started...")
 
-            result = container.exec_run(decomposePar_cmd, stream=True)
+                result = container.exec_run(decomposePar_cmd, stream=True)
 
-            #for line in result.output:
-            #   print(line.decode('utf-8').strip())
+                #for line in result.output:
+                #   print(line.decode('utf-8').strip())
 
-            for _ in result.output:
-                pass
+                for _ in result.output:
+                    pass
 
-            print("decomposePar finished...")
+                print("decomposePar finished...")
         else:
             print("Mesh is not OK... stopping this case")
     else:
@@ -199,78 +200,77 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
 
     ### IF NOT RESUME END ###
 
-    # Launch convergenceStop script in parallel (threading)
+    ### IF NOT MESH_ONLY : ###
 
-    #convergence_window_time = (1/(rpm_count/60))*convergence_window_revolutions
-
-    if resume:
-        timestep_str = str(safe_time)
-    else:
-        timestep_str = "0"
+    if not MESH_ONLY:
 
 
-    monitor_thread = threading.Thread(
-        target=run_convergence_monitor,
-        kwargs={
-            'main_sim_folder': simulation_working_directory, 
-            'rpm':rpm_count,
-            'avg_history_count': convergence_window_revolutions,
-            'tolerance': convergence_tolerance,
-            'check_interval': convergence_check_interval,
-            'timestep' : timestep_str
-        }
-    )
+        # Launch convergenceStop script in parallel (threading)
 
-    # Setting daemon=True ensures the monitor dies if the main script crashes
-    monitor_thread.daemon = True 
 
-    # Starting convergence monitoring
-    print(f"Launching Background Convergence Monitor... Timestep is: {timestep_str}")
-    monitor_thread.start()
+        if resume:
+            timestep_str = str(safe_time)
+        else:
+            timestep_str = "0"
 
-    # Starting the actual solving process
-    """
-    if resume:
-        simRun_cmd = f"bash -c 'source /opt/openfoam13/etc/bashrc && mpirun --allow-run-as-root --use-hwthread-cpus -np {NUMBER_OF_CORES} foamRun -solver incompressibleFluid -parallel -latestTime | tee log.pimpleFoam'"
-    else:
+
+        monitor_thread = threading.Thread(
+            target=run_convergence_monitor,
+            kwargs={
+                'main_sim_folder': simulation_working_directory, 
+                'rpm':rpm_count,
+                'avg_history_count': convergence_window_revolutions,
+                'tolerance': convergence_tolerance,
+                'check_interval': convergence_check_interval,
+                'timestep' : timestep_str
+            }
+        )
+
+        # Setting daemon=True ensures the monitor dies if the main script crashes
+        monitor_thread.daemon = True 
+
+        # Starting convergence monitoring
+        print(f"Launching Background Convergence Monitor... Timestep is: {timestep_str}")
+        monitor_thread.start()
+
+        # Starting the actual solving process
+
+
         simRun_cmd = f"bash -c 'source /opt/openfoam13/etc/bashrc && mpirun --allow-run-as-root --use-hwthread-cpus -np {NUMBER_OF_CORES} foamRun -solver incompressibleFluid -parallel | tee log.pimpleFoam'"
-    """
 
-    simRun_cmd = f"bash -c 'source /opt/openfoam13/etc/bashrc && mpirun --allow-run-as-root --use-hwthread-cpus -np {NUMBER_OF_CORES} foamRun -solver incompressibleFluid -parallel | tee log.pimpleFoam'"
+        print("pimpleFoamSolver started...")
 
-    print("pimpleFoamSolver started...")
-
-    result = container.exec_run(simRun_cmd, stream=True)
+        result = container.exec_run(simRun_cmd, stream=True)
 
 
-    #for line in result.output:
-    #   print(line.decode('utf-8').strip())
+        #for line in result.output:
+        #   print(line.decode('utf-8').strip())
 
-    for _ in result.output:
-        pass
+        for _ in result.output:
+            pass
 
-    # The solver has now exited. 
-    # If the monitor thread is NO LONGER alive, it means it found convergence and returned True.
+        # The solver has now exited. 
+        # If the monitor thread is NO LONGER alive, it means it found convergence and returned True.
 
-    if not monitor_thread.is_alive():
-        print("SUCCESS: Simulation stopped early due to convergence.")
-    else:
-        print("NOTICE: Simulation finished normally (reached original endTime).")
+        if not monitor_thread.is_alive():
+            print("SUCCESS: Simulation stopped early due to convergence.")
+        else:
+            print("NOTICE: Simulation finished normally (reached original endTime).")
 
 
-    reconstructPar_cmd = "bash -c 'source /opt/openfoam13/etc/bashrc && reconstructPar > log.reconstructPar'"
+        reconstructPar_cmd = "bash -c 'source /opt/openfoam13/etc/bashrc && reconstructPar > log.reconstructPar'"
 
-    print("reconstructPar started...")
+        print("reconstructPar started...")
 
-    result = container.exec_run(reconstructPar_cmd, stream=True)
+        result = container.exec_run(reconstructPar_cmd, stream=True)
 
-    #for line in result.output:
-    #   print(line.decode('utf-8').strip())
+        #for line in result.output:
+        #   print(line.decode('utf-8').strip())
 
-    for _ in result.output:
-        pass
+        for _ in result.output:
+            pass
 
-    print("reconstructPar finsished...")
+        print("reconstructPar finsished...")
 
 
     # Create .FOAM file

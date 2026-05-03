@@ -10,8 +10,6 @@ from tools import update_case_status
 from tools import has_timestep
 from tools import reset_case_folder
 from tools import get_safe_timestep
-from tools import update_parameter
-
 
 def main() -> None:
     pipeline_main_directory = Path(__file__).resolve().parent
@@ -28,7 +26,7 @@ def main() -> None:
     parser.add_argument("--rpms", nargs="+", type=int)
     parser.add_argument("--mode", choices=["AMI", "MRF"])
     parser.add_argument("--field-init", default="on", choices=["on", "off"])
-    parser.add_argument("--study", default="off", choices=["on", "off"])
+    parser.add_argument("--study", action="store_true")
     parser.add_argument("--study-file")
     parser.add_argument("--study-parameter")
     parser.add_argument(
@@ -37,6 +35,8 @@ def main() -> None:
     )
     parser.add_argument("--cores", type=int)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--mesh-only", action="store_true")
+
 
     args = parser.parse_args()
     simulations_directory = args.sim_dir.resolve()
@@ -58,11 +58,12 @@ def main() -> None:
         args.geometries = order["geometries"]
         args.rpms = order["rpms"]
         args.field_init = order.get("field_init", "on")
-        args.study = order.get("study", "off")
+        args.study = order.get("study", False)
         args.study_file = order.get("study_file")
         args.study_parameter = order.get("study_parameter")
         args.study_values = order.get("study_values")
         args.cores = order["cores"]
+        args.mesh_only = order["mesh_only"]
 
         print(f"\n--- Resuming simulation batch from: {simulations_directory} ---")
         print(f"Mode: {args.mode}")
@@ -88,7 +89,7 @@ def main() -> None:
                 + ", ".join(missing)
             )
 
-        if args.study == "on":
+        if args.study:
             study_missing = []
             if args.study_file is None:
                 study_missing.append("--study-file")
@@ -99,13 +100,13 @@ def main() -> None:
 
             if study_missing:
                 parser.error(
-                    "The following arguments are required when --study on: "
+                    "The following arguments are required when --study is set: "
                     + ", ".join(study_missing)
                 )
 
             if len(args.geometries) != 1 or len(args.rpms) != 1:
                 parser.error(
-                    "When --study on, exactly one geometry and one RPM must be provided."
+                    "When --study is set, exactly one geometry and one RPM must be provided."
                 )
 
         simulations_directory.mkdir(parents=True, exist_ok=True)
@@ -194,6 +195,7 @@ def main() -> None:
                         initialize_from_previous=use_previous_init,
                         previous_simulation_path=previous_simulation_path,
                         NUMBER_OF_CORES=args.cores,
+                        MESH_ONLY=args.mesh_only,
                     )
                 except Exception:
                     print(
@@ -204,6 +206,12 @@ def main() -> None:
 
                 update_case_status(simulations_directory, folder_name, "solver_done")
                 status = "solver_done"
+
+                if args.mesh_only:
+                    update_case_status(simulations_directory, folder_name, "postprocessing_done")
+                    status = "postprocessing_done"
+                    
+                
                 continue
 
             # ---------------- SOLVER RESUME ----------------
@@ -251,16 +259,26 @@ def main() -> None:
                     initialize_from_previous=use_previous_init,
                     previous_simulation_path=previous_simulation_path,
                     NUMBER_OF_CORES=args.cores,
+                    MESH_ONLY=args.mesh_only,
                 )
 
                 if success:
                     update_case_status(simulations_directory, folder_name, "solver_done")
                     status = "solver_done"
+
+                    if args.mesh_only:
+                        update_case_status(simulations_directory, folder_name, "postprocessing_done")
+                        status = "postprocessing_done"
+
+
                 else:
                     update_case_status(simulations_directory, folder_name, "solver_running")
                     break
 
                 continue
+
+            
+
 
             # ---------------- POSTPROCESSING ----------------
             if status == "solver_done":

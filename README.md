@@ -2,19 +2,18 @@
 
 ## Overview
 
-Automated pipeline to generate meshes and run OpenFOAM simulations for UAV propellers.
+Automated pipeline for generating meshes and running OpenFOAM simulations of UAV propellers.
 
-Supports:
-- MRF (steady)
-- AMI (transient)
+### Features
 
-Includes:
-- Automated meshing (blockMesh + snappyHexMesh)
-- Parallel execution
-- Convergence monitoring
-- Postprocessing & report generation
-- Study mode
-- Resume capability
+- MRF (steady) and AMI (transient) simulation modes  
+- Fully automated meshing (blockMesh + snappyHexMesh)  
+- Parallel execution  
+- Convergence monitoring (thrust + residuals)  
+- Postprocessing & PDF report generation  
+- Parameter study support  
+- Robust resume capability  
+- Mesh-only mode for tuning  
 
 ---
 
@@ -31,73 +30,111 @@ docker info
 
 ---
 
-## Usage
+## CLI Design
+
+The CLI is structured into:
+
+### 1. Configuration Parameters (define the simulation setup)
 
 ```bash
-python main.py --sim-dir <path> --geometries <list> --rpms <list> --mode <mode> --field-init <mode> --cores <int> --study <mode> --study-parameter <string> --study-file <string> --study-values <string> --resume
+--sim-dir        Output directory
+--geometries     STL names (without .stl)
+--rpms           Rotation speeds
+--mode           AMI | MRF
+--cores          Number of cores
+--field-init     on | off
+```
+
+### 2. Feature Flags (activated if present)
+
+```bash
+--study          Enable parameter study
+--resume         Resume existing simulation batch
+--mesh-only      Stop after mesh generation
 ```
 
 ---
 
-## Key Arguments
+## Basic Usage
 
-- `--sim-dir` → Output directory  
-- `--geometries` → STL names (without `.stl`)  
-- `--rpms` → Rotation speeds  
-- `--cores` → Number of cores  
-- `--mode` → `MRF` or `AMI`  
-- `--field-init` → Sequential initialization (`on` / `off`)  
-- `--study` → Enable parameter study (`on` / `off`)  
-- `--resume` → Resume previous batch  
+```bash
+python main.py   --sim-dir <path>   --geometries <list>   --rpms <list>   --mode <AMI|MRF>   --cores <int>   --field-init <on|off>
+```
+
+---
+
+## Configuration Options
+
+### `--field-init`
+
+Controls sequential initialization between RPM cases.
+
+- `on` → initialize from previous RPM result  
+- `off` → start each case independently  
+
+---
+
+## Feature Flags
+
+### `--resume`
+
+Resumes an interrupted simulation batch.
+
+```bash
+python main.py --sim-dir <path> --resume
+```
+
+### `--mesh-only`
+
+Stops pipeline after mesh generation.
+
+Use this for:
+- Mesh tuning
+- y⁺ validation
+- Pre-solver checks
+
+Solver must be started manually afterward.
 
 ---
 
 ## Resume Feature
 
-The pipeline supports **automatic resume of interrupted simulations**.
+The pipeline automatically resumes simulations:
 
 ### Behavior
 
-- Detects latest valid timestep (ignores `0` folder)
-- Checks required fields (e.g. `U`, `p`)
-- Skips corrupted or incomplete timesteps
-- Continues simulation from last valid state
+- Detects latest valid timestep (ignores `0`)
+- Verifies required fields (`U`, `p`)
+- Skips corrupted/incomplete timesteps
+- Continues from last valid state
 
 ### Important ⚠️
 
-> **Each simulation run should use a NEW directory**  
-> (**one simulation_run → one folder**)
+> **One simulation run = one directory**
 
-Reason:
-- Avoids undefined behavior from mixed states
-- Prevents conflicts with existing postProcessing data
-- Ensures reproducibility and stability
-
-### Example: Resume
-
-```bash
-python main.py \
-  --sim-dir /scratch/simulations \
-  --resume
-```
-
-→ Continues all pending or interrupted cases inside the simulation directory.
+Always use a new folder for a new run.
 
 ---
 
 ## Study Mode
 
-Enable with:
+Enable parameter studies with:
 
 ```bash
---study on
+--study
 ```
 
-### Configuration
+### Required Arguments
 
-- `--study-parameter` → Parameter to vary  
-- `--study-file` → File containing parameter  
-- `--study-values` → Values separated by `...`
+```bash
+--study-parameter <name>
+--study-file <file>
+--study-values <values>
+```
+
+### Value Format
+
+Values are separated by `...`
 
 Examples:
 
@@ -110,9 +147,9 @@ Examples:
 
 ## Study Behavior
 
-- Requires **exactly one geometry** and **one RPM**
-- Runs one simulation per value
-- Each case stored in its own folder:
+- Requires exactly **one geometry** and **one RPM**
+- Creates one simulation per value
+- Folder naming:
 
 ```bash
 <geometry>_<rpm>RPM_<parameter>_<value>
@@ -120,33 +157,36 @@ Examples:
 
 ---
 
-## Example
+## Examples
+
+### Standard Run
 
 ```bash
-python main.py \
-  --sim-dir /scratch/simulations \
-  --geometries 10x7E \
-  --rpms 7000 \
-  --mode AMI \
-  --cores 24 \
-  --field-init on
+python main.py   --sim-dir /scratch/simulations   --geometries 10x7E   --rpms 7000   --mode AMI   --cores 24   --field-init on
 ```
 
 ---
 
-## Example: Parameter Study
+### Resume Run
 
 ```bash
-python main.py \
-  --sim-dir /scratch/simulations \
-  --geometries 10x7E \
-  --rpms 7000 \
-  --mode AMI \
-  --cores 24 \
-  --study on \
-  --study-parameter refinementLevel \
-  --study-file snappyHexMeshDict \
-  --study-values 3...4...5
+python main.py   --sim-dir /scratch/simulations   --resume
+```
+
+---
+
+### Mesh-Only Run
+
+```bash
+python main.py   --sim-dir /scratch/simulations   --geometries 10x7E   --rpms 7000   --mode AMI   --cores 24   --mesh-only
+```
+
+---
+
+### Parameter Study
+
+```bash
+python main.py   --sim-dir /scratch/simulations   --geometries 10x7E   --rpms 7000   --mode AMI   --cores 24   --study   --study-parameter refinementLevel   --study-file snappyHexMeshDict   --study-values 3...4...5
 ```
 
 ---
@@ -154,8 +194,29 @@ python main.py \
 ## Notes
 
 - STL files must be located in `STLs/`
-- Names must match (e.g. `10x7E.stl`)
-- RPM order matters if `field-init on`
+- Names must match exactly (e.g. `10x7E.stl`)
+- RPM order matters if `--field-init on`
 - Simulation parameters are defined in `Parameters/`
-- AMI = more accurate, slower  
-- MRF = faster, suitable for initial studies
+
+### Simulation Modes
+
+- **AMI** → more accurate, transient, slower  
+- **MRF** → faster, steady, good for initial studies  
+
+---
+
+## Summary
+
+- Use **configuration options** to define the simulation  
+- Use **flags** to activate pipeline features  
+- Keep simulation runs isolated per directory  
+
+---
+
+## Future Extensions
+
+Planned improvements:
+
+- Turbulence model selection (`kOmega`, `kEpsilon`)
+- Automated y⁺ targeting
+- Mesh convergence automation
