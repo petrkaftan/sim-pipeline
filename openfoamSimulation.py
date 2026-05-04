@@ -9,7 +9,7 @@ from tools import get_safe_timestep
 
 convergence_check_interval = 1
 
-def openfoamSimulation(simulation_name, simulation_working_directory, convergence_tolerance, rpm_count, convergence_window_revolutions, MODE, NUMBER_OF_CORES, resume, MESH_ONLY, initialize_from_previous=False, previous_simulation_path=None):
+def openfoamSimulation(simulation_name, simulation_working_directory, convergence_tolerance, rpm_count, convergence_window_revolutions, MODE, NUMBER_OF_CORES, resume, MESH_ONLY, ALLOW_BAD_MESH, initialize_from_previous=False, previous_simulation_path=None):
 
     # Docker client is setup here, interface volume mapping is defined, container is created:
 
@@ -99,7 +99,7 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
 
         checkMesh_log_path = os.path.join(simulation_working_directory, 'log.checkMesh')
 
-        if is_mesh_ok(Path(checkMesh_log_path)):
+        if is_mesh_ok(Path(checkMesh_log_path)) or ALLOW_BAD_MESH:
 
             if MODE == "AMI":
 

@@ -36,6 +36,7 @@ def main() -> None:
     parser.add_argument("--cores", type=int)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--mesh-only", action="store_true")
+    parser.add_argument("--allow-bad-mesh", action="store_true")
 
 
     args = parser.parse_args()
@@ -64,6 +65,7 @@ def main() -> None:
         args.study_values = order.get("study_values")
         args.cores = order["cores"]
         args.mesh_only = order["mesh_only"]
+        args.allow_bad_mesh = order["allow_bad_mesh"]
 
         print(f"\n--- Resuming simulation batch from: {simulations_directory} ---")
         print(f"Mode: {args.mode}")
@@ -196,6 +198,7 @@ def main() -> None:
                         previous_simulation_path=previous_simulation_path,
                         NUMBER_OF_CORES=args.cores,
                         MESH_ONLY=args.mesh_only,
+                        ALLOW_BAD_MESH=args.allow_bad_mesh,
                     )
                 except Exception:
                     print(
@@ -260,6 +263,7 @@ def main() -> None:
                     previous_simulation_path=previous_simulation_path,
                     NUMBER_OF_CORES=args.cores,
                     MESH_ONLY=args.mesh_only,
+                    ALLOW_BAD_MESH=args.allow_bad_mesh,
                 )
 
                 if success:

@@ -51,6 +51,7 @@ The CLI is structured into:
 --study          Enable parameter study
 --resume         Resume existing simulation batch
 --mesh-only      Stop after mesh generation
+--allow-bad-mesh Neglects bad mesh checks before solving
 ```
 
 ---
@@ -179,6 +180,14 @@ python main.py   --sim-dir /scratch/simulations   --resume
 
 ```bash
 python main.py   --sim-dir /scratch/simulations   --geometries 10x7E   --rpms 7000   --mode AMI   --cores 24   --mesh-only
+```
+
+---
+
+### Allow-Bad-Mesh Run
+
+```bash
+python main.py   --sim-dir /scratch/simulations   --geometries 10x7E   --rpms 7000   --mode AMI   --cores 24   --allow-bad-mesh
 ```
 
 ---

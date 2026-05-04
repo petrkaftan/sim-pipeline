@@ -348,7 +348,7 @@ meshQualityControls
     // Advanced
 
     //- Number of error distribution iterations
-    nSmoothScale 4;
+    nSmoothScale $nSmoothScale;
     //- Amount to scale back displacement at error points
     errorReduction 0.75;
 
