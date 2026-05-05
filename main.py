@@ -4,6 +4,7 @@ from pathlib import Path
 from preprocessing import preprocessing
 from openfoamSimulation import openfoamSimulation
 from postprocessing import postprocessing
+from mesh_visualization import render_mesh_sections
 from tools import create_simulation_order
 from tools import load_simulation_order
 from tools import update_case_status
@@ -35,6 +36,10 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--mesh-only", action="store_true")
     parser.add_argument("--allow-bad-mesh", action="store_true")
+    parser.add_argument(
+        "--pvpython",
+        help="Optional path to ParaView pvpython for automatic mesh section PNGs.",
+    )
 
 
     args = parser.parse_args()
@@ -65,6 +70,7 @@ def main() -> None:
         args.mesh_only = order["mesh_only"]
         args.allow_bad_mesh = order["allow_bad_mesh"]
         args.turbulence = order["turbulence"]
+        args.pvpython = getattr(args, "pvpython", None)
 
         print(f"\n--- Resuming simulation batch from: {simulations_directory} ---")
         print(f"Mode: {args.mode}")
@@ -203,6 +209,10 @@ def main() -> None:
                 )
 
                 if success:
+                    render_mesh_sections(
+                        simulation_path,
+                        pvpython_executable=args.pvpython,
+                    )
                     update_case_status(simulations_directory, folder_name, "solver_done")
                     status = "solver_done"
 
@@ -267,6 +277,10 @@ def main() -> None:
                 )
 
                 if success:
+                    render_mesh_sections(
+                        simulation_path,
+                        pvpython_executable=args.pvpython,
+                    )
                     update_case_status(simulations_directory, folder_name, "solver_done")
                     status = "solver_done"
 
