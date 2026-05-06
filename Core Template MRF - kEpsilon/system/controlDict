@@ -79,30 +79,6 @@ functions
         writeInterval   10;
     }
 
-    yPlus
-    {
-        type            yPlus;
-        libs            ("libfieldFunctionObjects.so");
-        patches         (propellerTip);
-        log             yes;
-        writeControl    timeStep;
-        writeInterval   10;
-
-        // Enable to also view y+ distribution in paraFoam
-        // objects         ();
-    }
-
-    wallShear
-    {
-        type            wallShearStress;
-        libs            ("libfieldFunctionObjects.so");
-        patches         (propellerTip);
-        log             yes;
-        writeControl    timeStep;
-        writeInterval   10;
-
-    }
-
     residuals
     {
         type            residuals;

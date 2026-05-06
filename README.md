@@ -158,6 +158,10 @@ Skips the full postprocessing/report pipeline during simulation runs. Cases are
 marked as `postprocessing_skipped` after solver reconstruction, and the batch
 continues directly to the next case.
 
+Use this for large solver batches. Derived fields such as `yPlus` and
+`wallShearStress` are not written during the solver run, so `purgeWrite` can
+clean old processor time folders without leaving derived-field leftovers.
+
 ```bash
 python main.py --sim-dir <path> <simulation options> --skip-postprocessing
 ```
@@ -166,6 +170,9 @@ python main.py --sim-dir <path> <simulation options> --skip-postprocessing
 
 Runs only the postprocessing pipeline for an existing batch. It does not start
 OpenFOAM or modify solver setup.
+
+The postprocessing pass computes derived OpenFOAM fields such as `yPlus` and
+`wallShearStress` for the reconstructed latest time before creating reports.
 
 ```bash
 python main.py --sim-dir <path> --postprocess-only
