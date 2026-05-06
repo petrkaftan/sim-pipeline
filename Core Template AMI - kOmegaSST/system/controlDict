@@ -18,13 +18,13 @@ startFrom       $startFrom;
 
 stopAt          endTime;
 
-endTime         0.2;
+endTime         $endTime;
 
 deltaT          $deltaT;
 
 maxDeltaT       $maxDeltaT;
 
-writeControl    timeStep;
+writeControl    adjustableRunTime;
 writeInterval   $writeInterval;
 
 ////- For testing with moveDynamicMesh

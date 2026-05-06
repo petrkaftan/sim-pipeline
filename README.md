@@ -53,6 +53,8 @@ The CLI is structured into:
 --resume         Resume existing simulation batch
 --mesh-only      Stop after mesh generation
 --allow-bad-mesh Neglects bad mesh checks before solving
+--keep-rotation-steps Number of final 20-degree rotation write times to keep
+--stop-on-convergence Enable early stopping from the convergence monitor
 ```
 
 ---
@@ -147,6 +149,34 @@ Use this for:
 - Pre-solver checks
 
 Solver must be started manually afterward.
+
+---
+
+### `--keep-rotation-steps`
+
+The solver runs to `endTime = 0.2` seconds by default. Each case writes main time
+directories every 20 degrees of rotation:
+
+```bash
+writeInterval = 60 / (RPM * 18)
+```
+
+`purgeWrite` is set from `--keep-rotation-steps`, so only the last N of those
+20-degree snapshots are retained.
+
+```bash
+python main.py \
+  --sim-dir /scratch/simulations \
+  --geometries 10x7E \
+  --rpms 7000 \
+  --mode AMI \
+  --turbulence kOmegaSST \
+  --cores 24 \
+  --keep-rotation-steps 18
+```
+
+Use `--stop-on-convergence` only if you want the older behavior where the
+convergence monitor can shorten the run before `0.2` seconds.
 
 ---
 

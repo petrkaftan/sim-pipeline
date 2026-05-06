@@ -16,7 +16,7 @@ interpolation_points = 100
 # Usage
 
 
-def preprocessing(STL_PATH, RPM_COUNT, MAIN_DIRECTORY, TARGET_DIRECTORY, CORES_TO_USE, MODE, INIT_FROM_PREVIOUS, PREVIOUS_SIMULATION_PATH, TURBULENCE_MODEL, STUDY_PARAMETER_NAME = None, STUDY_PARAMETER_FILE = None, STUDY_PARAMETER = None):
+def preprocessing(STL_PATH, RPM_COUNT, MAIN_DIRECTORY, TARGET_DIRECTORY, CORES_TO_USE, MODE, INIT_FROM_PREVIOUS, PREVIOUS_SIMULATION_PATH, TURBULENCE_MODEL, KEEP_ROTATION_STEPS=18, STUDY_PARAMETER_NAME = None, STUDY_PARAMETER_FILE = None, STUDY_PARAMETER = None):
 
  
     #1. duplicate right Core Template to target directory (AMI or RMF approach)
@@ -104,6 +104,15 @@ def preprocessing(STL_PATH, RPM_COUNT, MAIN_DIRECTORY, TARGET_DIRECTORY, CORES_T
     decomposeParDict_parameters_file_path = os.path.join(TARGET_DIRECTORY, 'Parameters', 'decomposeParDict.cpp')
 
     update_parameter(decomposeParDict_parameters_file_path, 'numberOfSubdomains', CORES_TO_USE)
+
+    control_dict_parameters_file_path = os.path.join(TARGET_DIRECTORY, 'Parameters', 'controlDict.cpp')
+
+    # One output every 20 degrees: 360 / 20 = 18 writes per revolution.
+    rotation_snapshot_interval = 60.0 / (RPM_COUNT * 18.0)
+
+    update_parameter(control_dict_parameters_file_path, 'endTime', 0.2)
+    update_parameter(control_dict_parameters_file_path, 'writeInterval', f"{rotation_snapshot_interval:.12g}")
+    update_parameter(control_dict_parameters_file_path, 'purgeWrite', int(KEEP_ROTATION_STEPS))
 
 
     #4. generate STL file from requestes described geometry (other function)

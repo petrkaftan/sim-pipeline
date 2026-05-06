@@ -12,7 +12,7 @@ status = False
 
 convergence_check_interval = 1
 
-def openfoamSimulation(simulation_name, simulation_working_directory, convergence_tolerance, rpm_count, convergence_window_revolutions, MODE, NUMBER_OF_CORES, resume, MESH_ONLY, ALLOW_BAD_MESH, initialize_from_previous=False, previous_simulation_path=None):
+def openfoamSimulation(simulation_name, simulation_working_directory, convergence_tolerance, rpm_count, convergence_window_revolutions, MODE, NUMBER_OF_CORES, resume, MESH_ONLY, ALLOW_BAD_MESH, STOP_ON_CONVERGENCE=False, initialize_from_previous=False, previous_simulation_path=None):
 
     # Docker client is setup here, interface volume mapping is defined, container is created:
 
@@ -217,24 +217,28 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
             timestep_str = "0"
 
 
-        monitor_thread = threading.Thread(
-            target=run_convergence_monitor,
-            kwargs={
-                'main_sim_folder': simulation_working_directory, 
-                'rpm':rpm_count,
-                'avg_history_count': convergence_window_revolutions,
-                'tolerance': convergence_tolerance,
-                'check_interval': convergence_check_interval,
-                'timestep' : timestep_str
-            }
-        )
+        monitor_thread = None
+        if STOP_ON_CONVERGENCE:
+            monitor_thread = threading.Thread(
+                target=run_convergence_monitor,
+                kwargs={
+                    'main_sim_folder': simulation_working_directory,
+                    'rpm':rpm_count,
+                    'avg_history_count': convergence_window_revolutions,
+                    'tolerance': convergence_tolerance,
+                    'check_interval': convergence_check_interval,
+                    'timestep' : timestep_str
+                }
+            )
 
-        # Setting daemon=True ensures the monitor dies if the main script crashes
-        monitor_thread.daemon = True 
+            # Setting daemon=True ensures the monitor dies if the main script crashes
+            monitor_thread.daemon = True
 
-        # Starting convergence monitoring
-        print(f"Launching Background Convergence Monitor... Timestep is: {timestep_str}")
-        monitor_thread.start()
+            # Starting convergence monitoring
+            print(f"Launching Background Convergence Monitor... Timestep is: {timestep_str}")
+            monitor_thread.start()
+        else:
+            print("Convergence early-stop monitor disabled. Solver will run to configured endTime.")
 
         # Starting the actual solving process
 
@@ -255,7 +259,7 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
         # The solver has now exited. 
         # If the monitor thread is NO LONGER alive, it means it found convergence and returned True.
 
-        if not monitor_thread.is_alive():
+        if monitor_thread is not None and not monitor_thread.is_alive():
             print("SUCCESS: Simulation stopped early due to convergence.")
         else:
             print("NOTICE: Simulation finished normally (reached original endTime).")

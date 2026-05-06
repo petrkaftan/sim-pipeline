@@ -37,6 +37,17 @@ def main() -> None:
     parser.add_argument("--mesh-only", action="store_true")
     parser.add_argument("--allow-bad-mesh", action="store_true")
     parser.add_argument(
+        "--keep-rotation-steps",
+        type=int,
+        default=18,
+        help="Number of final write times to keep. Each write is spaced by 20 degrees of rotation.",
+    )
+    parser.add_argument(
+        "--stop-on-convergence",
+        action="store_true",
+        help="Enable the old convergence monitor behavior that stops the solver before endTime.",
+    )
+    parser.add_argument(
         "--pvpython",
         help="Optional path to ParaView pvpython for automatic mesh section PNGs.",
     )
@@ -70,6 +81,8 @@ def main() -> None:
         args.mesh_only = order["mesh_only"]
         args.allow_bad_mesh = order["allow_bad_mesh"]
         args.turbulence = order["turbulence"]
+        args.keep_rotation_steps = order.get("keep_rotation_steps", 18)
+        args.stop_on_convergence = order.get("stop_on_convergence", False)
         args.pvpython = getattr(args, "pvpython", None)
 
         print(f"\n--- Resuming simulation batch from: {simulations_directory} ---")
@@ -117,6 +130,9 @@ def main() -> None:
                 parser.error(
                     "When --study is set, exactly one geometry and one RPM must be provided."
                 )
+
+        if args.keep_rotation_steps < 1:
+            parser.error("--keep-rotation-steps must be at least 1")
 
         simulations_directory.mkdir(parents=True, exist_ok=True)
         create_simulation_order(args=args, simulations_directory=simulations_directory)
@@ -173,7 +189,8 @@ def main() -> None:
                     MODE=mode,
                     INIT_FROM_PREVIOUS=use_previous_init,
                     PREVIOUS_SIMULATION_PATH=previous_simulation_path,
-                    TURBULENCE_MODEL = args.turbulence
+                    TURBULENCE_MODEL=args.turbulence,
+                    KEEP_ROTATION_STEPS=args.keep_rotation_steps,
                 )
 
                 if is_study_case:
@@ -206,6 +223,7 @@ def main() -> None:
                     NUMBER_OF_CORES=args.cores,
                     MESH_ONLY=args.mesh_only,
                     ALLOW_BAD_MESH=args.allow_bad_mesh,
+                    STOP_ON_CONVERGENCE=args.stop_on_convergence,
                 )
 
                 if success:
@@ -274,6 +292,7 @@ def main() -> None:
                     NUMBER_OF_CORES=args.cores,
                     MESH_ONLY=args.mesh_only,
                     ALLOW_BAD_MESH=args.allow_bad_mesh,
+                    STOP_ON_CONVERGENCE=args.stop_on_convergence,
                 )
 
                 if success:
