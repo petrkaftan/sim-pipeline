@@ -39,6 +39,16 @@ def main() -> None:
     parser.add_argument("--mesh-only", action="store_true")
     parser.add_argument("--allow-bad-mesh", action="store_true")
     parser.add_argument(
+        "--skip-postprocessing",
+        action="store_true",
+        help="Finish cases after the solver/reconstruction step and skip report generation.",
+    )
+    parser.add_argument(
+        "--postprocess-only",
+        action="store_true",
+        help="Run postprocessing for completed cases in an existing --sim-dir, without starting solvers.",
+    )
+    parser.add_argument(
         "--end-time",
         type=float,
         help="OpenFOAM endTime for every case. Defaults to 0.2 for new batches.",
@@ -67,6 +77,48 @@ def main() -> None:
 
     args = parser.parse_args()
     simulations_directory = args.sim_dir.resolve()
+
+    terminal_statuses = {"postprocessing_done", "postprocessing_skipped"}
+
+    if args.postprocess_only:
+        if args.resume:
+            parser.error("--postprocess-only cannot be combined with --resume")
+
+        order_file = simulations_directory / "simulation_order.json"
+        if not order_file.exists():
+            parser.error(f"No simulation_order.json was found in {simulations_directory}")
+
+        order = load_simulation_order(simulations_directory)
+
+        print(f"\n--- Running postprocessing only for: {simulations_directory} ---")
+
+        for case in order["cases"]:
+            folder_name = case["folder"]
+            status = case.get("status", "pending")
+
+            if status not in {"solver_done", "postprocessing_skipped", "postprocessing_done"}:
+                print(f"Skipping {folder_name}: status is {status}")
+                continue
+
+            simulation_path = simulations_directory / folder_name
+
+            print(f"\n--- Postprocessing case: {folder_name} ---")
+            try:
+                postprocessing(
+                    SIMULATION_WORKING_DIRECTORY=simulation_path,
+                    RPM_COUNT=int(case["rpm"]),
+                    MODE=case.get("mode", order["mode"]),
+                    TURBULENCE_MODEL=case.get("turbulence", order["turbulence"]),
+                )
+            except Exception as exc:
+                print(f"Postprocessing failed for {folder_name}: {exc}")
+                update_case_status(simulations_directory, folder_name, "postprocessing_failed")
+                continue
+
+            update_case_status(simulations_directory, folder_name, "postprocessing_done")
+
+        print("\nPostprocessing pass completed.")
+        return
 
     # -------- RESUME / NEW RUN VALIDATION --------
     if args.resume:
@@ -98,7 +150,7 @@ def main() -> None:
             )
 
         has_completed_cases = any(
-            case.get("status") == "postprocessing_done"
+            case.get("status") in terminal_statuses
             for case in order["cases"]
         )
 
@@ -130,19 +182,25 @@ def main() -> None:
         args.mesh_only = order["mesh_only"]
         args.allow_bad_mesh = order["allow_bad_mesh"]
         args.turbulence = order["turbulence"]
+        args.skip_postprocessing = (
+            args.skip_postprocessing
+            or order.get("skip_postprocessing", False)
+        )
         args.keep_rotation_steps = order.get("keep_rotation_steps", 18)
         args.stop_on_convergence = order.get("stop_on_convergence", False)
         args.pvpython = getattr(args, "pvpython", None)
 
         order["end_time"] = args.end_time
+        order["skip_postprocessing"] = args.skip_postprocessing
         order["keep_rotation_steps"] = args.keep_rotation_steps
         order["stop_on_convergence"] = args.stop_on_convergence
 
         for case in order["cases"]:
             case["end_time"] = args.end_time
+            case["skip_postprocessing"] = args.skip_postprocessing
             case["keep_rotation_steps"] = args.keep_rotation_steps
             case["stop_on_convergence"] = args.stop_on_convergence
-            if args.extend_completed and case.get("status") == "postprocessing_done":
+            if args.extend_completed and case.get("status") in terminal_statuses:
                 case["status"] = "solver_running"
 
         save_simulation_order(simulations_directory, order)
@@ -242,7 +300,7 @@ def main() -> None:
 
         print(f"\n--- Case: {folder_name} | Status: {status} ---")
 
-        if status == "postprocessing_done":
+        if status in terminal_statuses:
             print("Skipping completed case.")
             if not is_study_case:
                 previous_simulation_by_geometry[geometry] = simulation_path
@@ -257,7 +315,7 @@ def main() -> None:
 
         # Inner loop allows a clean restart to return to preprocessing
         # for the same case instead of moving to the next case.
-        while status != "postprocessing_done":
+        while status not in terminal_statuses:
 
             # ---------------- PREPROCESSING ----------------
             if status == "pending":
@@ -318,9 +376,9 @@ def main() -> None:
                     update_case_status(simulations_directory, folder_name, "solver_done")
                     status = "solver_done"
 
-                    if args.mesh_only:
-                        update_case_status(simulations_directory, folder_name, "postprocessing_done")
-                        status = "postprocessing_done"
+                    if args.mesh_only or args.skip_postprocessing:
+                        update_case_status(simulations_directory, folder_name, "postprocessing_skipped")
+                        status = "postprocessing_skipped"
 
 
                 else:
@@ -387,9 +445,9 @@ def main() -> None:
                     update_case_status(simulations_directory, folder_name, "solver_done")
                     status = "solver_done"
 
-                    if args.mesh_only:
-                        update_case_status(simulations_directory, folder_name, "postprocessing_done")
-                        status = "postprocessing_done"
+                    if args.mesh_only or args.skip_postprocessing:
+                        update_case_status(simulations_directory, folder_name, "postprocessing_skipped")
+                        status = "postprocessing_skipped"
 
 
                 else:
@@ -402,7 +460,19 @@ def main() -> None:
 
 
             # ---------------- POSTPROCESSING ----------------
+            if status == "postprocessing_failed":
+                print("Retrying failed postprocessing.")
+                update_case_status(simulations_directory, folder_name, "solver_done")
+                status = "solver_done"
+                continue
+
             if status == "solver_done":
+                if args.skip_postprocessing:
+                    print("Skipping postprocessing.")
+                    update_case_status(simulations_directory, folder_name, "postprocessing_skipped")
+                    status = "postprocessing_skipped"
+                    continue
+
                 print("Starting postprocessing...")
                 postprocessing(
                     SIMULATION_WORKING_DIRECTORY=simulation_path,
@@ -416,7 +486,7 @@ def main() -> None:
 
             raise ValueError(f"Unknown case status for {folder_name}: {status}")
 
-        if status == "postprocessing_done" and not is_study_case:
+        if status in terminal_statuses and not is_study_case:
             previous_simulation_by_geometry[geometry] = simulation_path
 
     print("\nAll simulations completed.")

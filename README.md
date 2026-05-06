@@ -53,6 +53,8 @@ The CLI is structured into:
 --study          Enable parameter study
 --resume         Resume existing simulation batch
 --extend-completed Resume completed cases to a higher --end-time
+--skip-postprocessing Skip report generation during simulation runs
+--postprocess-only Run postprocessing later for an existing batch
 --mesh-only      Stop after mesh generation
 --allow-bad-mesh Neglects bad mesh checks before solving
 --keep-rotation-steps Number of final 20-degree rotation write times to keep
@@ -149,6 +151,25 @@ python main.py --sim-dir <path> --resume --end-time 0.2 --extend-completed
 
 If a resumed batch already contains completed cases, increasing `--end-time`
 requires `--extend-completed` so the batch remains consistent.
+
+### `--skip-postprocessing`
+
+Skips the full postprocessing/report pipeline during simulation runs. Cases are
+marked as `postprocessing_skipped` after solver reconstruction, and the batch
+continues directly to the next case.
+
+```bash
+python main.py --sim-dir <path> <simulation options> --skip-postprocessing
+```
+
+### `--postprocess-only`
+
+Runs only the postprocessing pipeline for an existing batch. It does not start
+OpenFOAM or modify solver setup.
+
+```bash
+python main.py --sim-dir <path> --postprocess-only
+```
 
 ### `--mesh-only`
 
@@ -302,6 +323,18 @@ python main.py   --sim-dir /scratch/simulations   --resume
 
 ```bash
 python main.py   --sim-dir /scratch/simulations   --resume   --end-time 0.2   --extend-completed
+```
+
+### Simulation-Only Run
+
+```bash
+python main.py   --sim-dir /scratch/simulations   --geometries 10x7E   --rpms 7000   --mode MRF   --turbulence kEpsilon   --cores 24   --skip-postprocessing
+```
+
+### Postprocess Existing Run
+
+```bash
+python main.py   --sim-dir /scratch/simulations   --postprocess-only
 ```
 
 ---
