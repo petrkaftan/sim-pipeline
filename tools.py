@@ -128,7 +128,13 @@ def load_simulation_order(simulations_directory: Path):
 
     with open(json_path, "r") as f:
         return json.load(f)
-    
+
+
+def save_simulation_order(simulations_directory: Path, batch):
+    json_path = simulations_directory / "simulation_order.json"
+
+    with open(json_path, "w") as f:
+        json.dump(batch, f, indent=4)
 
 
 def update_case_status(simulations_directory: Path, folder_name: str, new_status: str):
@@ -171,6 +177,7 @@ def create_simulation_order(args, simulations_directory: Path):
         "field_init": args.field_init,
         "mesh_only" : args.mesh_only,
         "allow_bad_mesh" : args.allow_bad_mesh,
+        "end_time": args.end_time,
         "keep_rotation_steps": args.keep_rotation_steps,
         "stop_on_convergence": args.stop_on_convergence,
         "study": args.study,
@@ -205,6 +212,7 @@ def create_simulation_order(args, simulations_directory: Path):
                 "cores": args.cores,
                 "mesh_only" : args.mesh_only,
                 "allow_bad_mesh" : args.allow_bad_mesh,
+                "end_time": args.end_time,
                 "keep_rotation_steps": args.keep_rotation_steps,
                 "stop_on_convergence": args.stop_on_convergence,
                 "field_init": args.field_init,
@@ -230,6 +238,7 @@ def create_simulation_order(args, simulations_directory: Path):
                     "cores": args.cores,
                     "mesh_only" : args.mesh_only,
                     "allow_bad_mesh" : args.allow_bad_mesh,
+                    "end_time": args.end_time,
                     "keep_rotation_steps": args.keep_rotation_steps,
                     "stop_on_convergence": args.stop_on_convergence,
                     "field_init": args.field_init,

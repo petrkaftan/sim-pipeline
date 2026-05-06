@@ -7,10 +7,12 @@ from postprocessing import postprocessing
 from mesh_visualization import render_mesh_sections
 from tools import create_simulation_order
 from tools import load_simulation_order
+from tools import save_simulation_order
 from tools import update_case_status
 from tools import has_timestep
 from tools import reset_case_folder
 from tools import get_safe_timestep
+from tools import update_parameter
 
 def main() -> None:
     pipeline_main_directory = Path(__file__).resolve().parent
@@ -36,6 +38,16 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--mesh-only", action="store_true")
     parser.add_argument("--allow-bad-mesh", action="store_true")
+    parser.add_argument(
+        "--end-time",
+        type=float,
+        help="OpenFOAM endTime for every case. Defaults to 0.2 for new batches.",
+    )
+    parser.add_argument(
+        "--extend-completed",
+        action="store_true",
+        help="With --resume, rerun completed cases from their latest timestep using the requested --end-time.",
+    )
     parser.add_argument(
         "--keep-rotation-steps",
         type=int,
@@ -69,6 +81,43 @@ def main() -> None:
 
         order = load_simulation_order(simulations_directory)
 
+        stored_end_time = order.get("end_time", 0.2)
+        if args.extend_completed and args.end_time is None:
+            parser.error("--extend-completed requires a new --end-time")
+
+        if args.end_time is None:
+            args.end_time = stored_end_time
+
+        if args.end_time <= 0:
+            parser.error("--end-time must be greater than 0")
+
+        if args.end_time < stored_end_time:
+            parser.error(
+                f"--end-time {args.end_time} is lower than the stored batch end_time "
+                f"{stored_end_time}. Use a new --sim-dir for a shorter run."
+            )
+
+        has_completed_cases = any(
+            case.get("status") == "postprocessing_done"
+            for case in order["cases"]
+        )
+
+        if (
+            args.end_time > stored_end_time
+            and has_completed_cases
+            and not args.extend_completed
+        ):
+            parser.error(
+                "This batch already has completed cases. Use --extend-completed "
+                "when increasing --end-time so completed cases are resumed too."
+            )
+
+        if args.extend_completed and args.end_time <= stored_end_time:
+            parser.error(
+                f"--extend-completed requires --end-time to be greater than the "
+                f"stored batch end_time {stored_end_time}."
+            )
+
         args.mode = order["mode"]
         args.geometries = order["geometries"]
         args.rpms = order["rpms"]
@@ -85,14 +134,31 @@ def main() -> None:
         args.stop_on_convergence = order.get("stop_on_convergence", False)
         args.pvpython = getattr(args, "pvpython", None)
 
+        order["end_time"] = args.end_time
+        order["keep_rotation_steps"] = args.keep_rotation_steps
+        order["stop_on_convergence"] = args.stop_on_convergence
+
+        for case in order["cases"]:
+            case["end_time"] = args.end_time
+            case["keep_rotation_steps"] = args.keep_rotation_steps
+            case["stop_on_convergence"] = args.stop_on_convergence
+            if args.extend_completed and case.get("status") == "postprocessing_done":
+                case["status"] = "solver_running"
+
+        save_simulation_order(simulations_directory, order)
+
         print(f"\n--- Resuming simulation batch from: {simulations_directory} ---")
         print(f"Mode: {args.mode}")
         print(f"Geometries: {args.geometries}")
         print(f"RPMs: {args.rpms}")
         print(f"Cores: {args.cores}")
+        print(f"End time: {args.end_time}")
         print(f"Study: {args.study}")
 
     else:
+        if args.extend_completed:
+            parser.error("--extend-completed can only be used with --resume")
+
         missing = []
         if args.geometries is None:
             missing.append("--geometries")
@@ -134,6 +200,12 @@ def main() -> None:
         if args.keep_rotation_steps < 1:
             parser.error("--keep-rotation-steps must be at least 1")
 
+        if args.end_time is None:
+            args.end_time = 0.2
+
+        if args.end_time <= 0:
+            parser.error("--end-time must be greater than 0")
+
         simulations_directory.mkdir(parents=True, exist_ok=True)
         create_simulation_order(args=args, simulations_directory=simulations_directory)
         order = load_simulation_order(simulations_directory)
@@ -153,6 +225,17 @@ def main() -> None:
 
         simulation_path = simulations_directory / folder_name
         simulation_path.mkdir(parents=True, exist_ok=True)
+
+        control_parameters_path = simulation_path / "Parameters" / "controlDict.cpp"
+        if control_parameters_path.exists():
+            rotation_snapshot_interval = 60.0 / (rpm * 18.0)
+            update_parameter(control_parameters_path, "endTime", args.end_time)
+            update_parameter(
+                control_parameters_path,
+                "writeInterval",
+                f"{rotation_snapshot_interval:.12g}",
+            )
+            update_parameter(control_parameters_path, "purgeWrite", int(args.keep_rotation_steps))
 
         stl_path = pipeline_main_directory / "STLs" / f"{geometry}.stl"
         is_study_case = "study_value" in case
@@ -190,6 +273,7 @@ def main() -> None:
                     INIT_FROM_PREVIOUS=use_previous_init,
                     PREVIOUS_SIMULATION_PATH=previous_simulation_path,
                     TURBULENCE_MODEL=args.turbulence,
+                    END_TIME=args.end_time,
                     KEEP_ROTATION_STEPS=args.keep_rotation_steps,
                 )
 

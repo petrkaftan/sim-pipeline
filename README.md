@@ -44,6 +44,7 @@ The CLI is structured into:
 --cores          Number of cores
 --field-init     on | off (default: on)
 --turbulence     kOmegaSST | kEpsilon
+--end-time       OpenFOAM endTime in seconds (default: 0.2)
 ```
 
 ### 2. Feature Flags (activated if present)
@@ -51,6 +52,7 @@ The CLI is structured into:
 ```bash
 --study          Enable parameter study
 --resume         Resume existing simulation batch
+--extend-completed Resume completed cases to a higher --end-time
 --mesh-only      Stop after mesh generation
 --allow-bad-mesh Neglects bad mesh checks before solving
 --keep-rotation-steps Number of final 20-degree rotation write times to keep
@@ -62,7 +64,7 @@ The CLI is structured into:
 ## Basic Usage
 
 ```bash
-python main.py   --sim-dir <path>   --geometries <list>   --rpms <list>   --mode <AMI|MRF>   --cores <int> --turbulence <kOmegaSST|kEpsilon>  --field-init <on|off>
+python main.py   --sim-dir <path>   --geometries <list>   --rpms <list>   --mode <AMI|MRF>   --cores <int> --turbulence <kOmegaSST|kEpsilon>  --field-init <on|off> --end-time <seconds>
 ```
 
 
@@ -139,6 +141,15 @@ Resumes an interrupted simulation batch.
 python main.py --sim-dir <path> --resume
 ```
 
+To extend a completed batch, provide a higher end time:
+
+```bash
+python main.py --sim-dir <path> --resume --end-time 0.2 --extend-completed
+```
+
+If a resumed batch already contains completed cases, increasing `--end-time`
+requires `--extend-completed` so the batch remains consistent.
+
 ### `--mesh-only`
 
 Stops pipeline after mesh generation.
@@ -154,7 +165,7 @@ Solver must be started manually afterward.
 
 ### `--keep-rotation-steps`
 
-The solver runs to `endTime = 0.2` seconds by default. Each case writes main time
+The solver runs to `--end-time` seconds, defaulting to `0.2`. Each case writes main time
 directories every 20 degrees of rotation:
 
 ```bash
@@ -172,6 +183,7 @@ python main.py \
   --mode AMI \
   --turbulence kOmegaSST \
   --cores 24 \
+  --end-time 0.2 \
   --keep-rotation-steps 18
 ```
 
@@ -284,6 +296,12 @@ python main.py \
 
 ```bash
 python main.py   --sim-dir /scratch/simulations   --resume
+```
+
+### Extend Completed Run
+
+```bash
+python main.py   --sim-dir /scratch/simulations   --resume   --end-time 0.2   --extend-completed
 ```
 
 ---
