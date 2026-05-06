@@ -24,7 +24,7 @@ deltaT          $deltaT;
 
 maxDeltaT       $maxDeltaT;
 
-writeControl    adjustableRunTime;
+writeControl    runTime;
 writeInterval   $writeInterval;
 
 ////- For testing with moveDynamicMesh
