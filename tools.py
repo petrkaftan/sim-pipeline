@@ -5,7 +5,6 @@ import pandas as pd
 import re
 from pathlib import Path
 import json
-from datetime import datetime
 
 
 def merge_postprocessing_dat_files(case_dir: Path, function_object_name: str) -> Path | None:
@@ -100,14 +99,15 @@ def merge_postprocessing_dat_files(case_dir: Path, function_object_name: str) ->
 
 
 def reset_case_folder(simulation_path: Path):
-    if simulation_path.exists():
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        broken_path = simulation_path.with_name(
-            simulation_path.name + f"_BROKEN_{timestamp}"
-        )
+    if not simulation_path.exists():
+        simulation_path.mkdir(parents=True, exist_ok=True)
+        return
 
-        simulation_path.rename(broken_path)
-        print(f"Moved broken case to: {broken_path}")
+    if any(simulation_path.iterdir()):
+        raise RuntimeError(
+            f"Refusing to reset non-empty case folder: {simulation_path}\n"
+            "Move or delete this folder manually after verifying its contents."
+        )
 
     simulation_path.mkdir(parents=True, exist_ok=True)
 

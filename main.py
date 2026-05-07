@@ -10,7 +10,6 @@ from tools import load_simulation_order
 from tools import save_simulation_order
 from tools import update_case_status
 from tools import has_timestep
-from tools import reset_case_folder
 from tools import get_safe_timestep
 from tools import update_parameter
 
@@ -319,6 +318,12 @@ def main() -> None:
 
             # ---------------- PREPROCESSING ----------------
             if status == "pending":
+                if any(simulation_path.iterdir()):
+                    raise RuntimeError(
+                        f"Refusing to preprocess into non-empty case folder: {simulation_path}\n"
+                        "Move or delete this folder manually after verifying its contents."
+                    )
+
                 print("Starting preprocessing...")
 
                 preprocessing_kwargs = dict(
@@ -391,15 +396,24 @@ def main() -> None:
             if status == "solver_running":
 
                 processor0_path = simulation_path / "processor0"
+                has_root_timesteps = has_timestep(simulation_path)
+                has_processor_timesteps = has_timestep(processor0_path)
 
-                if not has_timestep(processor0_path):
-                    print("Solver marked as running but no timesteps found → clean restart")
-
-                    reset_case_folder(simulation_path)
-
-                    update_case_status(simulations_directory, folder_name, "pending")
-                    status = "pending"
+                if has_root_timesteps and not has_processor_timesteps:
+                    print(
+                        "Found reconstructed root timesteps and no decomposed processor timesteps. "
+                        "Treating case as solver_done."
+                    )
+                    update_case_status(simulations_directory, folder_name, "solver_done")
+                    status = "solver_done"
                     continue
+
+                if not has_processor_timesteps:
+                    print(
+                        "Solver marked as running, but no decomposed processor timesteps were found. "
+                        "No automatic reset will be performed; moving to the next case."
+                    )
+                    break
 
                 
 
@@ -409,13 +423,11 @@ def main() -> None:
 
                 if safe_time is None:
                     # timesteps exist but none are usable -> clean restart
-                    print("Timesteps exist but none are usable→ clean restart")
-
-                    reset_case_folder(simulation_path)
-
-                    update_case_status(simulations_directory, folder_name, "pending")
-                    status = "pending"
-                    continue
+                    print(
+                        "Timesteps exist but none are usable. "
+                        "Stopping before any automatic reset."
+                    )
+                    break
                 else:
                     # commands if valid timesteps are there and standard resume:
                     print("Resuming solver from latest timestep")
