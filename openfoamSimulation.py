@@ -4,7 +4,6 @@ from pathlib import Path
 import threading
 from tools import run_convergence_monitor
 from tools import is_mesh_ok
-from tools import get_safe_timestep
 
 
 status = False
@@ -157,18 +156,16 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
     else:
         print("Preparing to resume...")
 
-        safe_time = get_safe_timestep(simulation_working_directory)
+        reconstructPar_resume_cmd = "bash -c 'source /opt/openfoam13/etc/bashrc && reconstructPar > log_resume.reconstructPar'"
 
-        reconstructPar_resume_cmd = f"bash -c 'source /opt/openfoam13/etc/bashrc && reconstructPar -time {safe_time}  > log_resume.reconstructPar'"
-
-        print("Reconstructing safe timestep...")
+        print("Reconstructing decomposed timesteps...")
         
         result = container.exec_run(reconstructPar_resume_cmd, stream=True)
 
         for _ in result.output:
             pass
 
-        print("Reconstructing safe timestep finished...")
+        print("Reconstructing decomposed timesteps finished...")
 
         print("Deleting processor folders...")
 
@@ -211,10 +208,7 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
         # Launch convergenceStop script in parallel (threading)
 
 
-        if resume:
-            timestep_str = str(safe_time)
-        else:
-            timestep_str = "0"
+        timestep_str = "0"
 
 
         monitor_thread = None

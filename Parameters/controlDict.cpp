@@ -6,5 +6,5 @@ maxDeltaT 1e-04;
 writeInterval 0.0001;
 purgeWrite 18;
 adjustTimeStep yes;
-maxCo 1;
-maxDiCo 1;
+maxCo 2;
+maxDiCo 2;
