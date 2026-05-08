@@ -9,11 +9,11 @@ maxLoadUnbalance 0.10;
 nCellsBetweenLevels 2;
 
 innerCylinderSurfaceRefinementLevel (3 3);
-propellerTipSurfaceRefinementLevel (6 6);
+propellerTipSurfaceRefinementLevel (5 5);
 
 outerCylinderRefinementRegionLevel ((1E15 2));
 innerCylinderRefinementRegionMode distance;
-innerCylinderRefinementRegionLevel ((0.02 3));
+innerCylinderRefinementRegionLevel ((0.005 3) (0.030 2));
 propellerTipRefinementRegionMode distance;
 propellerTipRefinementRegionLevel ((0.002 5) (0.01 4) (0.03 3));
 
