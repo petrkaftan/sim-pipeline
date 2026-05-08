@@ -85,7 +85,7 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
         for _ in result.output:
             pass
 
-        print("snappyHexMesh finsished...")
+        print("snappyHexMesh finished...")
 
         checkMesh_cmd = "bash -c 'source /opt/openfoam13/etc/bashrc && checkMesh | tee log.checkMesh'"
 
@@ -273,7 +273,7 @@ def openfoamSimulation(simulation_name, simulation_working_directory, convergenc
         for _ in result.output:
             pass
 
-        print("reconstructPar finsished...")
+        print("reconstructPar finished...")
     else: 
         status = True
 
